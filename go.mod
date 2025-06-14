@@ -54,7 +54,7 @@ require (
 require (
 	github.com/RomiChan/protobuf v0.1.1-0.20230204044148-2ed269a2e54d // indirect
 	github.com/RomiChan/syncx v0.0.0-20221202055724-5f842c53020e // indirect
-	github.com/andybalholm/brotli v1.0.5
+	github.com/andybalholm/brotli v1.1.1
 	github.com/andybalholm/cascadia v1.3.1 // indirect
 	github.com/bytedance/sonic v1.9.2 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
