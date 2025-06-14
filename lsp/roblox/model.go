@@ -117,4 +117,13 @@ func (e *GamePlayingEvent) Logger() *logrus.Entry {
 	})
 }
 
+// UserSearchResponse 用于解析用户名搜索API的响应
+type UserSearchResponse struct {
+	Data []struct {
+		ID          int64  `json:"id"`
+		Name        string `json:"name"`
+		DisplayName string `json:"displayName"`
+	} `json:"data"`
+}
+
 // HACK: model.go 

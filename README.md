@@ -58,6 +58,14 @@ roblox:
   /list roblox
   ```
 
+- **查询用户信息**:
+  ```
+  /roblox info user <ID或用户名>
+  ```
+  示例:
+  - `/roblox info user 1` (按ID查询)
+  - `/roblox info user Roblox` (按用户名查询)
+
 ---
 
 ## 快速开始

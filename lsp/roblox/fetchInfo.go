@@ -29,6 +29,42 @@ func getUserInfo(uid int64) (*UserInfo, error) {
 	return &info, nil
 }
 
+// findUserByName 通过用户名查找用户信息
+func findUserByName(username string) (*UserInfo, error) {
+	requestBody, err := json.Marshal(map[string][]string{
+		"usernames": {username},
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "序列化请求体失败")
+	}
+
+	resp, err := http.Post(fmt.Sprintf("%s/v1/usernames/users", usersAPI), "application/json", bytes.NewBuffer(requestBody))
+	if err != nil {
+		return nil, errors.Wrap(err, "请求用户信息失败")
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.Errorf("API 请求失败, 状态码: %d", resp.StatusCode)
+	}
+
+	var searchResult UserSearchResponse
+	if err := json.NewDecoder(resp.Body).Decode(&searchResult); err != nil {
+		return nil, errors.Wrap(err, "解析用户信息失败")
+	}
+
+	if len(searchResult.Data) == 0 {
+		return nil, errors.Errorf("找不到用户: %s", username)
+	}
+
+	foundUser := searchResult.Data[0]
+	return &UserInfo{
+		ID:          foundUser.ID,
+		Name:        foundUser.Name,
+		DisplayName: foundUser.DisplayName,
+	}, nil
+}
+
 // getGameInfo 获取游戏信息
 func getGameInfo(gameOrPlaceId int64) ([]GameInfo, error) {
 	// 首先尝试将 ID 作为 Universe ID 使用
