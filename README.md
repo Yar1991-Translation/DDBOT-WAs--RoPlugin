@@ -1,8 +1,101 @@
-# DDBOT
+# DDBOT-WSa (Roblox 插件版)
 
-[<img src="https://github.com/cnxysoft/DDBOT-WSa/actions/workflows/ci.yml/badge.svg"/>](https://github.com/cnxysoft/DDBOT-WSa/actions/workflows/ci.yml)
-[<img src="https://coveralls.io/repos/github/Sora233/DDBOT/badge.svg?branch=master"/>](https://coveralls.io/github/Sora233/DDBOT)
+[![Go build](https://github.com/Yar1991-Translation/DDBOT-WAs--RoPlugin/actions/workflows/ci.yml/badge.svg)](https://github.com/Yar1991-Translation/DDBOT-WAs--RoPlugin/actions/workflows/ci.yml)
 [![GoDoc](http://img.shields.io/badge/go-documentation-blue.svg?style=flat-square)](https://pkg.go.dev/github.com/cnxysoft/DDBOT-WSa)
+
+本项目是 [cnxysoft/DDBOT-WSa](https://github.com/cnxysoft/DDBOT-WSa) 的一个分支版本，在其强大的QQ群推送框架基础上，新增了对 **Roblox** 的订阅支持。
+
+DDBOT 是一个基于 [MiraiGO](https://github.com/Mrs4s/MiraiGo) 的 QQ 推送框架，原版支持 B站、斗鱼、YouTube、微博等多个平台。本分支在保留所有原有功能的同时，通过插件机制，扩展了对 Roblox 的支持。
+
+---
+
+## 新增功能：Roblox 订阅插件
+
+本插件允许您在 QQ 群内订阅 Roblox 游戏和用户，以便及时获取更新通知。
+
+### 主要功能
+
+- **订阅 Roblox 用户**：监控指定用户的在线状态（离线、在线、游戏中、Studio中），并在状态变化时发送通知。
+- **订阅 Roblox 游戏**：监控指定游戏的在线玩家数量，并在人数变化时发送通知。
+
+### 配置方法
+
+您可以通过修改根目录下的 `application.yaml` 文件来配置 Roblox 插件。
+
+```yaml
+# application.yaml
+
+# ... 其他配置 ...
+
+# Roblox 插件配置
+roblox:
+  enable: true # 设置为 true 启用插件，false 禁用
+  interval: "30s" # 检查更新的频率，例如 "30s", "1m", "5m"
+  proxy: "https://roproxy.com" # API 代理地址，可替换为其他兼容的代理
+```
+
+### 使用指令
+
+您可以在群聊或私聊中通过以下指令与 Bot 互动：
+
+- **订阅用户/游戏**:
+  ```
+  /watch roblox [user|game] <ID>
+  ```
+  示例:
+  - `/watch roblox user 123456` (订阅 ID 为 123456 的用户)
+  - `/watch roblox game 987654` (订阅 ID 为 987654 的游戏)
+
+- **取消订阅**:
+  ```
+  /unwatch roblox [user|game] <ID>
+  ```
+  示例:
+  - `/unwatch roblox user 123456`
+
+- **查看订阅列表**:
+  ```
+  /list roblox
+  ```
+
+---
+
+## 快速开始
+
+### 1. 环境准备
+
+- 安装 [Go (1.18 或更高版本)](https://go.dev/dl/)
+- 一个可用的 QQ Bot 框架 (如 [LLOnebot](https://llonebot.github.io/), [NapCat](https://napneko.github.io/), [Lagrange](https://lagrangedev.github.io/Lagrange.Doc/))
+
+### 2. 下载与运行
+
+首先，克隆本仓库：
+```bash
+git clone https://github.com/Yar1991-Translation/DDBOT-WAs--RoPlugin.git
+cd DDBOT-WAs--RoPlugin
+```
+
+然后，构建并运行程序：
+```bash
+# 构建
+go build -o ddbot.exe ./cmd/main.go
+
+# 运行 (Windows)
+./ddbot.exe
+
+# 运行 (Linux/macOS)
+./ddbot
+```
+首次运行前，请确保已根据您的 Bot 框架配置好 `application.yaml` 中的 `websocket` 部分。
+
+## 原版 README
+
+以下为原版 `DDBOT-WSa` 项目的 README 内容，包含了对项目设计理念、基础功能、插件开发等方面的详细介绍。
+
+---
+
+<details>
+<summary>点击展开原版 README</summary>
 
 DDBOT-WSa 是基于 DDBOT-ws 的修改版本，目的是恢复DDBOT的原有功能。
 新增的模板函数以及事件（触发）等其它更详细的更动见更新日志和[DDBOT部署教程](https://ddbot.songlist.icu)。
@@ -167,44 +260,4 @@ DDBOT已实现消息模板功能，一些内置命令和推送可通过模板自
 
 其他用法问题请到**交流群：755612788（已满）、980848391**
 
-## 赞助
-
-（排名按时间先后顺序）
-
-| 赞助者          | 渠道  | 金额      |
-|--------------|-----|---------|
-| VE-H Maw     | 爱发电 | ￥30.00  |
-| 饱受突击的3737民   | 爱发电 | ￥168.00 |
-| 刀光流水         | 爱发电 | ￥5.00   |
-| 爱发电用户_4QBx   | 爱发电 | ￥5.00   |
-| XDMrSmile_鸟鸟 | 爱发电 | ￥120.00 |
-| 别赋清颜         | 爱发电 | ￥300.00 |
-| 赫尔博达         | 爱发电 | ￥50.00  |
-| 冰王星          | 爱发电 | ￥5.00   |
-| yzr6991      | 爱发电 | ￥30.00  |
-| 么鱼           | 爱发电 | ￥5.00   |
-| Darren今天社恐了嘛 | 爱发电 | ￥5.00   |
-| Ed😓         | 爱发电 | ￥5.00   |
-| 殿九           | 爱发电 | ￥30.00  |
-| ACR          | 爱发电 | ￥50.00  |
-| 南宫           | 爱发电 | ￥30.00  |
-| 宇            | QQ  | ￥100.00 |
-| 殿九           | QQ  | ￥50.00  |
-| 梦幻七罪         | 爱发电 | ￥5.00   |
-| 电子鸽子         | 爱发电 | ￥30.00  |
-| 星落泪羽         | 爱发电 | ￥30.00  |
-
-## 鸣谢
-
-> [Goland](https://www.jetbrains.com/go/) 是一个非常适合Gopher的智能IDE，它极大地提高了开发人员的效率。
-
-特别感谢 [JetBrains](https://jb.gg/OpenSource) 为本项目提供免费的 [Goland](https://www.jetbrains.com/go/) 等一系列IDE的授权
-
-[<img src="https://user-images.githubusercontent.com/11474360/112592917-baa00600-8e41-11eb-9da4-ecb53bb3c2fa.png" width="200"/>](https://jb.gg/OpenSource)
-
-> Sora233：提供初版ddbot。
-
-> 早苗狐：感谢早苗狐对ddbot进行了一些修改,让它可以不依赖miraigo运行。
-## DDBOT:star:趋势图
-
-[![Stargazers over time](https://starchart.cc/Sora233/DDBOT.svg)](https://starchart.cc/Sora233/DDBOT)
+</details>
