@@ -40,7 +40,7 @@ require (
 	github.com/spf13/cast v1.9.2
 	github.com/stretchr/testify v1.10.0
 	github.com/tidwall/buntdb v1.2.10
-	github.com/tidwall/gjson v1.14.4
+	github.com/tidwall/gjson v1.18.0
 	go.uber.org/atomic v1.10.0
 	golang.org/x/sync v0.15.0
 	google.golang.org/protobuf v1.36.6
