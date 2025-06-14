@@ -9,7 +9,7 @@ replace github.com/Mrs4s/MiraiGo => ./miraigo
 require (
 	github.com/Jeffail/gabs/v2 v2.7.0
 	github.com/Mrs4s/MiraiGo v0.0.0-20230627090859-19e3d172596e
-	github.com/PuerkitoBio/goquery v1.8.1
+	github.com/PuerkitoBio/goquery v1.10.3
 	github.com/Sora233/MiraiGo-Template v0.0.0-20230701113809-5e00ec58aa6f
 	github.com/Sora233/sliceutil v0.0.0-20210120043858-459badd8d882
 	github.com/alecthomas/kong v1.11.0
@@ -48,14 +48,14 @@ require (
 
 require (
 	github.com/mmcdole/goxpp v1.1.1-0.20240225020742-a0c311522b23 // indirect
-	golang.org/x/net v0.11.0 // indirect
+	golang.org/x/net v0.39.0 // indirect
 )
 
 require (
 	github.com/RomiChan/protobuf v0.1.1-0.20230204044148-2ed269a2e54d // indirect
 	github.com/RomiChan/syncx v0.0.0-20221202055724-5f842c53020e // indirect
 	github.com/andybalholm/brotli v1.1.1
-	github.com/andybalholm/cascadia v1.3.1 // indirect
+	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/bytedance/sonic v1.9.2 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
 	github.com/fumiama/imgsz v0.0.2 // indirect
@@ -96,10 +96,10 @@ require (
 	github.com/tidwall/tinyqueue v0.1.1 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	golang.org/x/arch v0.3.0 // indirect
-	golang.org/x/crypto v0.10.0 // indirect
+	golang.org/x/crypto v0.37.0 // indirect
 	golang.org/x/exp v0.0.0-20230321023759-10a507213a29 // indirect
-	golang.org/x/sys v0.22.0 // indirect
-	golang.org/x/text v0.10.0 // indirect
+	golang.org/x/sys v0.32.0 // indirect
+	golang.org/x/text v0.24.0 // indirect
 	gopkg.ilharper.com/x/isatty v1.1.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
