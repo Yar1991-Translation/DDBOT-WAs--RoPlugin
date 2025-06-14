@@ -1,6 +1,6 @@
 module github.com/cnxysoft/DDBOT-WSa
 
-go 1.23
+go 1.23.0
 
 replace github.com/Sora233/MiraiGo-Template => ./bot
 
@@ -42,7 +42,7 @@ require (
 	github.com/tidwall/buntdb v1.2.10
 	github.com/tidwall/gjson v1.14.4
 	go.uber.org/atomic v1.10.0
-	golang.org/x/sync v0.3.0
+	golang.org/x/sync v0.15.0
 	google.golang.org/protobuf v1.31.0
 )
 
