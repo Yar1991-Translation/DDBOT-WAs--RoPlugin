@@ -22,7 +22,7 @@ func NewRobloxConcern(notifyChan chan<- concern.Notify) concern.Concern {
 		StateManager: concern.NewStateManagerWithStringID(ServiceName, notifyChan),
 		extraKey:     &extraKey{},
 	}
-	c.UseEmitQueue(config.Interval)
+	c.UseEmitQueue()
 	c.UseFreshFunc(c.EmitQueueFresher(c.fresh))
 	c.UseNotifyGeneratorFunc(c.notifyGenerator())
 	return c
