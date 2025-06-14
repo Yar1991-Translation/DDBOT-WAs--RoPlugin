@@ -43,7 +43,7 @@ require (
 	github.com/tidwall/gjson v1.14.4
 	go.uber.org/atomic v1.10.0
 	golang.org/x/sync v0.15.0
-	google.golang.org/protobuf v1.31.0
+	google.golang.org/protobuf v1.36.6
 )
 
 require (
