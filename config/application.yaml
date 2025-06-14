@@ -1,0 +1,24 @@
+# 这是DDBOT的配置文件
+
+# 日志等级
+logLevel: "info"
+
+# 账号配置
+account:
+  uin: 123456789  # QQ账号
+  password: ""    # 密码，如果为空则使用扫码登录
+
+# 通知并行数
+notifyParallel: 4
+
+# 图片池配置
+imagePool:
+  type: "off"  # 可选：loliconPool, localPool, off
+
+# 代理配置
+proxy:
+  type: "off"  # 可选：pyProxyPool, localProxyPool, off
+
+# Roblox 插件配置
+roblox:
+  refreshInterval: 60  # 刷新间隔（秒） 
