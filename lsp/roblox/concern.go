@@ -35,7 +35,7 @@ func (c *RobloxConcern) Site() string {
 
 // Types 返回支持的订阅类型
 func (c *RobloxConcern) Types() []concern_type.Type {
-	return []concern_type.Type{UserType, GameType}
+	return []concern_type.Type{UserType, GameType, FriendType}
 }
 
 // ParseId 解析ID
@@ -70,6 +70,21 @@ func (c *RobloxConcern) Add(ctx mmsg.IMsgCtx, groupCode int64, id interface{}, c
 			return nil, errors.Wrap(err, "获取游戏信息失败")
 		}
 		info := infos[0]
+		_, err = c.StateManager.AddGroupConcern(groupCode, id, ctype)
+		if err != nil {
+			return nil, err
+		}
+		return concern.NewIdentity(id, info.Name), nil
+	case FriendType:
+		// 好友订阅与用户类似，id 也是对方 uid
+		uid, err := parseID(id)
+		if err != nil {
+			return nil, errors.Wrap(err, "无效的好友 ID")
+		}
+		info, err := getUserInfo(uid)
+		if err != nil {
+			return nil, errors.Wrap(err, "获取好友信息失败")
+		}
 		_, err = c.StateManager.AddGroupConcern(groupCode, id, ctype)
 		if err != nil {
 			return nil, err
@@ -123,6 +138,8 @@ func (c *RobloxConcern) fresh(ctype concern_type.Type, id interface{}) ([]concer
 		return c.freshUserStatus(id)
 	case GameType:
 		return c.freshGameInfo(id)
+	case FriendType:
+		return c.freshFriendStatus(id)
 	default:
 		return nil, errors.New("不支持的订阅类型")
 	}
@@ -217,6 +234,51 @@ func (c *RobloxConcern) freshGameInfo(id interface{}) ([]concern.Event, error) {
 		c.StateManager.SetInt64(c.GamePlayingKey(info.ID), info.Playing)
 	}
 	
+	return events, nil
+}
+
+// freshFriendStatus 刷新好友上线状态（仅离线->非离线时推送）
+func (c *RobloxConcern) freshFriendStatus(id interface{}) ([]concern.Event, error) {
+	var events []concern.Event
+
+	uid, err := parseID(id)
+	if err != nil {
+		log.Errorf("解析好友ID失败: %v - %v", id, err)
+		return nil, errors.Wrap(err, "无效的好友 ID")
+	}
+
+	presences, err := getUsersPresence([]int64{uid})
+	if err != nil || len(presences) == 0 {
+		return nil, errors.Wrap(err, "获取好友在线状态失败")
+	}
+	presence := presences[0]
+	statusStr := getUserStatusString(presence)
+
+	lastStatus, _ := c.StateManager.Get(c.FriendStatusKey(uid))
+	if lastStatus == "" {
+		// 初始化状态，不推送
+		c.StateManager.Set(c.FriendStatusKey(uid), statusStr)
+		return nil, nil
+	}
+
+	// 仅当之前离线且现在非离线时触发
+	if lastStatus == "离线" && statusStr != "离线" {
+		info, err := getUserInfo(uid)
+		if err != nil {
+			return nil, errors.Wrap(err, "获取好友信息失败")
+		}
+		event := &FriendOnlineEvent{
+			FriendID:   uid,
+			FriendName: info.Name,
+			Status:     statusStr,
+			Time:       time.Now(),
+			ProfileLink: fmt.Sprintf("https://www.roblox.com/users/%d/profile", uid),
+		}
+		events = append(events, event)
+	}
+
+	// 更新缓存
+	c.StateManager.Set(c.FriendStatusKey(uid), statusStr)
 	return events, nil
 }
 

@@ -117,6 +117,36 @@ func (e *GamePlayingEvent) Logger() *logrus.Entry {
 	})
 }
 
+// FriendOnlineEvent 好友上线事件
+type FriendOnlineEvent struct {
+	FriendID    int64
+	FriendName  string
+	Status      string
+	Time        time.Time
+	ProfileLink string
+}
+
+func (e *FriendOnlineEvent) Site() string {
+	return ServiceName
+}
+
+func (e *FriendOnlineEvent) Type() concern_type.Type {
+	return FriendType
+}
+
+func (e *FriendOnlineEvent) GetUid() interface{} {
+	return e.FriendID
+}
+
+func (e *FriendOnlineEvent) Logger() *logrus.Entry {
+	return log.WithFields(logrus.Fields{
+		"Site":  e.Site(),
+		"Type":  e.Type(),
+		"Uid":   e.GetUid(),
+		"FName": e.FriendName,
+	})
+}
+
 // UserSearchResponse 用于解析用户名搜索API的响应
 type UserSearchResponse struct {
 	Data []struct {

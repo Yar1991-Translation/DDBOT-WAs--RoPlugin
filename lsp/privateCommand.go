@@ -112,6 +112,8 @@ func (c *LspPrivateCommand) Execute() {
 		c.AbnormalConcernCheckCommand()
 	case CleanConcern:
 		c.CleanConcernCommand()
+	case RobloxCommand:
+		c.RobloxCommand()
 	default:
 		if CheckCustomPrivateCommand(c.CommandName()) {
 			func() {
@@ -1458,4 +1460,111 @@ func (c *LspPrivateCommand) checkGroupCode(groupCode int64) error {
 		}
 	}
 	return nil
+}
+
+func (c *LspPrivateCommand) RobloxCommand() {
+	log := c.DefaultLoggerWithCommand(c.CommandName())
+	log.Infof("run %v command", c.CommandName())
+	defer func() { log.Infof("%v command end", c.CommandName()) }()
+
+	args := c.GetArgs()
+	if len(args) == 0 {
+		c.textReply("用法: /roblox <info|watch|unwatch|list> ...")
+		return
+	}
+	sub := args[0]
+	switch sub {
+	case "info":
+		c.robloxInfo(args[1:])
+	case "watch":
+		c.robloxWatch(false, args[1:])
+	case "unwatch":
+		c.robloxWatch(true, args[1:])
+	case "list":
+		c.textReply("请使用 /list -s roblox 查看订阅列表")
+	default:
+		c.textReply("未知子命令: " + sub)
+	}
+}
+
+// robloxInfo 处理 /roblox info ...
+func (c *LspPrivateCommand) robloxInfo(rest []string) {
+	if len(rest) < 1 {
+		c.textReply("参数错误 - 请输入用户ID或用户名")
+		return
+	}
+	identifier := rest[0]
+	// 尝试解析为数字
+	var uid int64
+	var err error
+	if uid, err = strconv.ParseInt(identifier, 10, 64); err == nil {
+		userInfo, err := getUserInfo(uid)
+		if err != nil {
+			c.textReply("查询失败: " + err.Error())
+			return
+		}
+		presences, _ := getUsersPresence([]int64{userInfo.ID})
+		status := "未知"
+		if len(presences) > 0 {
+			status = getUserStatusString(presences[0])
+		}
+		m := mmsg.NewMSG()
+		m.Textf("Roblox 用户信息\n")
+		m.Textf("- 用户名: %s\n", userInfo.Name)
+		m.Textf("- 显示名: %s\n", userInfo.DisplayName)
+		m.Textf("- 用户ID: %d\n", userInfo.ID)
+		m.Textf("- 当前状态: %s\n", status)
+		m.Textf("- 个人主页: https://www.roblox.com/users/%d/profile", userInfo.ID)
+		c.send(m)
+		return
+	}
+	// 否则按用户名
+	userInfo, err := findUserByName(identifier)
+	if err != nil {
+		c.textReply("查询失败: " + err.Error())
+		return
+	}
+	presences, _ := getUsersPresence([]int64{userInfo.ID})
+	status := "未知"
+	if len(presences) > 0 {
+		status = getUserStatusString(presences[0])
+	}
+	m := mmsg.NewMSG()
+	m.Textf("Roblox 用户信息\n")
+	m.Textf("- 用户名: %s\n", userInfo.Name)
+	m.Textf("- 显示名: %s\n", userInfo.DisplayName)
+	m.Textf("- 用户ID: %d\n", userInfo.ID)
+	m.Textf("- 当前状态: %s\n", status)
+	m.Textf("- 个人主页: https://www.roblox.com/users/%d/profile", userInfo.ID)
+	c.send(m)
+}
+
+// robloxWatch 处理 watch/unwatch 子命令
+func (c *LspPrivateCommand) robloxWatch(remove bool, rest []string) {
+	if len(rest) < 2 {
+		c.textReply("用法: /roblox " + map[bool]string{false:"watch", true:"unwatch"}[remove] + " <user|game|friend> <ID>")
+		return
+	}
+	typ := rest[0]
+	id := rest[1]
+	var ctype concern_type.Type
+	switch typ {
+	case "user":
+		ctype = UserType
+	case "game":
+		ctype = GameType
+	case "friend":
+		ctype = FriendType
+	default:
+		c.textReply("类型必须是 user|game|friend")
+		return
+	}
+	groupCode := c.sender().SenderUin
+	log := c.DefaultLoggerWithCommand("roblox-watch-wrapper")
+	IWatch(c.NewMessageContext(log), groupCode, id, ServiceName, ctype, remove)
+	if remove {
+		c.textReply("已取消订阅")
+	} else {
+		c.textReply("订阅成功")
+	}
 }

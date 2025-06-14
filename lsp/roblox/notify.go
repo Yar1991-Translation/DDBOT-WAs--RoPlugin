@@ -64,6 +64,24 @@ func (n *GamePlayingNotify) ToMessage() *mmsg.MSG {
 	return m
 }
 
+// FriendOnlineNotify 好友上线通知
+type FriendOnlineNotify struct {
+	*FriendOnlineEvent
+	groupCode int64
+}
+
+func (n *FriendOnlineNotify) GetGroupCode() int64 {
+	return n.groupCode
+}
+
+func (n *FriendOnlineNotify) ToMessage() *mmsg.MSG {
+	m := mmsg.NewMSG()
+	m.Textf("Roblox 好友 %s 上线啦！\n", n.FriendName)
+	m.Textf("当前状态: %s\n", n.Status)
+	m.Textf("个人主页: %s", n.ProfileLink)
+	return m
+}
+
 // NotifyGenerator 生成通知
 func (c *RobloxConcern) notifyGenerator() concern.NotifyGeneratorFunc {
 	return func(groupCode int64, event concern.Event) []concern.Notify {
@@ -80,6 +98,13 @@ func (c *RobloxConcern) notifyGenerator() concern.NotifyGeneratorFunc {
 				&GamePlayingNotify{
 					GamePlayingEvent: e,
 					groupCode:        groupCode,
+				},
+			}
+		case *FriendOnlineEvent:
+			return []concern.Notify{
+				&FriendOnlineNotify{
+					FriendOnlineEvent: e,
+					groupCode:         groupCode,
 				},
 			}
 		}
