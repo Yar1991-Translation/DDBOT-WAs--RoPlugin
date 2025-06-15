@@ -1,116 +1,71 @@
-# DDBOT-WSa (Roblox 插件版)
+# DDBOT-WSa Roblox 插件
 
-[![Go build](https://github.com/Yar1991-Translation/DDBOT-WAs--RoPlugin/actions/workflows/ci.yml/badge.svg)](https://github.com/Yar1991-Translation/DDBOT-WAs--RoPlugin/actions/workflows/ci.yml)
-[![GoDoc](http://img.shields.io/badge/go-documentation-blue.svg?style=flat-square)](https://pkg.go.dev/github.com/cnxysoft/DDBOT-WSa)
+> 最近更新：2025-06-15  |  **完整更新日志见 /blog 指令**
 
-本项目是 [cnxysoft/DDBOT-WSa](https://github.com/cnxysoft/DDBOT-WSa) 的一个分支版本，在其强大的QQ群推送框架基础上，新增了对 **Roblox** 的订阅支持。
+本仓库基于 [cnxysoft/DDBOT-WSa](https://github.com/cnxysoft/DDBOT-WSa) 进行二次开发，
+重点在于：
 
-DDBOT 是一个基于 [MiraiGO](https://github.com/Mrs4s/MiraiGo) 的 QQ 推送框架，原版支持 B站、斗鱼、YouTube、微博等多个平台。本分支在保留所有原有功能的同时，通过插件机制，扩展了对 Roblox 的支持。
+* 🚀 **Roblox 订阅插件**（用户状态 / 游戏人数 / 好友上线）
+* 🆕 `/roblox` 一站式指令（info / watch / list）
+* 📰 **Markdown 更新日志**：Bot 自动拉取 GitHub 博文并渲染为图片推送
+* 🔧 兼容原版全部 B 站 / 斗鱼 / Twitter 等订阅功能
 
----
+如需**直接体验已部署的机器人**，请：
 
-## 新增功能：Roblox 订阅插件
-
-本插件允许您在 QQ 群内订阅 Roblox 游戏和用户，以便及时获取更新通知。
-
-### 主要功能
-
-- **订阅 Roblox 用户**：监控指定用户的在线状态（离线、在线、游戏中、Studio中），并在状态变化时发送通知。
-- **订阅 Roblox 游戏**：监控指定游戏的在线玩家数量，并在人数变化时发送通知。
-
-### 配置方法
-
-您可以通过修改根目录下的 `application.yaml` 文件来配置 Roblox 插件。
-
-```yaml
-# application.yaml
-
-# ... 其他配置 ...
-
-# Roblox 插件配置
-roblox:
-  enable: true # 设置为 true 启用插件，false 禁用
-  interval: "30s" # 检查更新的频率，例如 "30s", "1m", "5m"
-  proxy: "https://roproxy.com" # API 代理地址，可替换为其他兼容的代理
-```
-
-### 使用指令
-
-您可以在群聊或私聊中通过以下指令与 Bot 互动：
-
-- **订阅用户/游戏**:
-  ```
-  /watch roblox [user|game] <ID>
-  ```
-  示例:
-  - `/watch roblox user 123456` (订阅 ID 为 123456 的用户)
-  - `/watch roblox game 987654` (订阅 ID 为 987654 的游戏)
-
-- **取消订阅**:
-  ```
-  /unwatch roblox [user|game] <ID>
-  ```
-  示例:
-  - `/unwatch roblox user 123456`
-
-- **查看订阅列表**:
-  ```
-  /list roblox
-  ```
-
-- **查询用户信息**:
-  ```
-  /roblox info user <ID或用户名>
-  ```
-  示例:
-  - `/roblox info user 1` (按ID查询)
-  - `/roblox info user Roblox` (按用户名查询)
+* 添加 QQ：**3069049949**
+* 或发送邮件至 **yar20000628@gmail.com**
 
 ---
 
-## 快速开始
+## 快速使用
 
-### 1. 环境准备
-
-- 安装 [Go (1.18 或更高版本)](https://go.dev/dl/)
-- 一个可用的 QQ Bot 框架 (如 [LLOnebot](https://llonebot.github.io/), [NapCat](https://napneko.github.io/), [Lagrange](https://lagrangedev.github.io/Lagrange.Doc/))
-
-### 2. 下载与运行
-
-首先，克隆本仓库：
 ```bash
+# 克隆项目
 git clone https://github.com/Yar1991-Translation/DDBOT-WAs--RoPlugin.git
 cd DDBOT-WAs--RoPlugin
-```
 
-然后，构建并运行程序：
-```bash
+# 安装依赖（含 lute / chromedp）
+go mod tidy
+
 # 构建
-go build -o ddbot.exe ./cmd/main.go
+GOOS=linux GOARCH=amd64 go build -o ddbot ./cmd
 
-# 运行 (Windows)
-./ddbot.exe
-
-# 运行 (Linux/macOS)
-./ddbot
+# 运行
+./ddbot -config application.yaml
 ```
-首次运行前，请确保已根据您的 Bot 框架配置好 `application.yaml` 中的 `websocket` 部分。
 
-## 原版 README
+> 运行前请确保服务器已安装可执行的 **Chrome / Chromium**，或在环境变量 `CHROME_EXECUTABLE` 指定路径。
 
-以下为原版 `DDBOT-WSa` 项目的 README 内容，包含了对项目设计理念、基础功能、插件开发等方面的详细介绍。
+---
+
+## 核心指令
+
+| 指令 | 说明 |
+|------|------|
+| `/roblox info <UID|用户名>` | 查询 Roblox 用户信息 |
+| `/roblox watch <user\|game\|friend> <ID>` | 添加订阅 |
+| `/roblox unwatch ...` | 取消订阅 |
+| `/roblox list` | 查看本群 Roblox 订阅 |
+| `/blog [file.md]` | 推送 README 或指定博文的更新日志到群 |
+
+更多通用指令请参考原版 README。
 
 ---
 
 <details>
-<summary>点击展开原版 README</summary>
+<summary>原版 README（折叠）</summary>
 
 DDBOT-WSa 是基于 DDBOT-ws 的修改版本，目的是恢复DDBOT的原有功能。
-新增的模板函数以及事件（触发）等其它更详细的更动见更新日志和[DDBOT部署教程](https://ddbot.songlist.icu)。
-目前已经兼容：LLOnebot / NapCat / Lagrange。
-新增对推特推送的支持（实验阶段）
 
-**目前已经修复所有的主要指令（奇奇怪怪的指令没测试）。**
+DDBOT-WSa 基于 [DDBOT-ws](https://github.com/cnxysoft/DDBOT-ws) 二次开发，致力于「恢复 + 增强」原版全部能力，并带来以下改进：
+
+- 🛠️ **功能补完**：修复并补齐历史指令/事件，开箱即用  
+- 🧩 **可扩展模板**：新增模板函数与事件钩子，方便二次开发  
+- 🔌 **多协议兼容**：原生支持 LLOnebot / NapCat / Lagrange  
+- 🐦 **Twitter 推送**：实验性接入，持续完善中  
+- ♻️ **持续维护**：社区驱动的活跃迭代
+
+**该分支所有核心指令均已恢复可用。**
 
 DDBOT是一个基于 [MiraiGO](https://github.com/Mrs4s/MiraiGo) 的QQ群推送框架， 内置支持b站直播/动态，斗鱼直播，YTB直播/预约直播，虎牙直播，ACFUN直播，微博动态，
 也可以通过插件支持任何订阅源。
@@ -124,21 +79,12 @@ DDBOT是一个基于 [MiraiGO](https://github.com/Mrs4s/MiraiGo) 的QQ群推送�
 
 ## 使用方法
 
- - 使用trss安装云崽
-   
- - 使用trss连接chronocat(red)
-
- - 使用LLOnebot / NapCat / Lagrange连接
-   
- - 云崽安装ws-plugin
-   
- - 云崽ws插件设置连接ddbot的ws地址
-   
- - ws://127.0.0.1:15630/ws
-
- - **从纯血DDBOT迁移到WSa**
- - 打开lsp.db的文件用右键记事本开启或vs/vscode打开 搜索ae字段全部替换为ex字段 只需要把ae改成ex就可以成功初始化数据库（可能会at全体失效建议重新配置）
-   
+1. 使用 `trss` 安装并启动 「云崽」  
+2. 在 `trss` 中连接 ChronoCat (red)  
+3. 准备任一 OneBot 协议端：LLOnebot / NapCat / Lagrange  
+4. 在云崽安装 `ws-plugin`，并将 WS 地址设为 `ws://127.0.0.1:15630/ws`  
+5. 如从纯血 DDBOT 迁移：  
+   打开 `lsp.db`，将字段 `ae` 批量替换为 `ex`，完成数据库升级
 
 ## 设计理念
 
@@ -149,33 +95,16 @@ DDBOT是一个基于 [MiraiGO](https://github.com/Mrs4s/MiraiGo) 的QQ群推送�
 
 ## **基本功能：**
 
-- **B站直播/动态推送**
-  - 让阁下在DD的时候不错过任何一场突击。
-  - 支持按关键字过滤，只推送有关键字的动态。
-  - 支持按动态类型过滤，例如：不推送转发的动态，只推送视频/专栏投稿，只推动带图片的动态等等。
-- **斗鱼直播推送**
-  - 没什么用，主要用来看爽哥。
-- **油管直播/视频推送**
-  - 支持推送预约直播信息及视频更新。
-- **虎牙直播推送**
-  - 不知道能看谁。
-- **ACFUN直播推送**
-  - 好像也有一些虚拟主播
-- **微博动态推送**
-- 支持自定义**插件**，可通过插件支持任意订阅来源
-  - 需要写代码
-- 可配置的 **@全体成员**
-  - 只建议单推群开启。
-- **倒放**
-  - 主要用来玩。
-- **Roll**
-  - 没什么用的roll点。
-- **签到**
-  - 没什么用的签到。
-- **权限管理**
-  - 可配置整个命令的启用和禁用，也可对单个用户配置命令权限，防止滥用。
-- **帮助**
-  - 输出一些没什么帮助的信息。
+- **B站 直播 / 动态**：关键字及类型过滤（仅视频 / 专栏 / 含图等）  
+- **斗鱼 直播**  
+- **YouTube 直播 / 视频**：含预约提醒  
+- **虎牙、AcFun 直播**  
+- **微博 动态**  
+- **自定义插件**：少量代码即可新增任意订阅源  
+- **@全体**：可选、可按群启用  
+- **娱乐 / 工具**：倒放、Roll、签到 等  
+- **权限管理**：按命令 / 按用户 细粒度控制  
+- **帮助系统**：内置说明书，一键查询
 
 <details>
   <summary>里命令</summary>
