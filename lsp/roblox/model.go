@@ -38,14 +38,37 @@ const (
 	UserStatusInStudio  = 3 // 在 Studio 中
 )
 
-// API 端点常量
+// API 端点，在 init 中根据配置初始化。
 var (
-	// 使用代理的 API 端点
-	usersAPI    = config.Proxy + "/users/v1"
-	presenceAPI = config.Proxy + "/presence/v1"
-	gamesAPI    = config.Proxy + "/games/v1"
-	apisAPI     = config.Proxy + "/apis/v1"
+	usersAPI    string // e.g. https://users.roblox.com
+	presenceAPI string // e.g. https://presence.roblox.com
+	gamesAPI    string // e.g. https://games.roblox.com
+	apisAPI     string // e.g. https://apis.roblox.com
 )
+
+// init 在包加载时执行，负责加载配置并初始化 API 端点。
+func init() {
+	// 加载 roblox.yaml 配置，获取 Proxy 等参数
+	loadConfig()
+
+	// 如果配置文件指定了代理，则使用代理；否则使用 Roblox 官方 API
+	if config.Proxy != "" {
+		// 移除可能存在的尾部斜杠
+		if config.Proxy[len(config.Proxy)-1] == '/' {
+			config.Proxy = config.Proxy[:len(config.Proxy)-1]
+		}
+
+		usersAPI = config.Proxy
+		presenceAPI = config.Proxy
+		gamesAPI = config.Proxy
+		apisAPI = config.Proxy
+	} else {
+		usersAPI = "https://users.roblox.com"
+		presenceAPI = "https://presence.roblox.com"
+		gamesAPI = "https://games.roblox.com"
+		apisAPI = "https://apis.roblox.com"
+	}
+}
 
 // UserStatusEvent 用户状态事件
 type UserStatusEvent struct {

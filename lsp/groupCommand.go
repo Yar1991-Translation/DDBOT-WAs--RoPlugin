@@ -1,11 +1,13 @@
 package lsp
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/cnxysoft/DDBOT-WSa/lsp/concern"
 	"github.com/cnxysoft/DDBOT-WSa/lsp/template"
 	"go.uber.org/atomic"
 	"math/rand"
+	"net/http"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -24,6 +26,8 @@ import (
 	"github.com/cnxysoft/DDBOT-WSa/lsp/permission"
 	"github.com/cnxysoft/DDBOT-WSa/utils"
 	"github.com/sirupsen/logrus"
+	"github.com/cnxysoft/DDBOT-WSa/lsp/roblox"
+	stdjson "encoding/json"
 )
 
 type LspGroupCommand struct {
@@ -159,6 +163,10 @@ func (lgc *LspGroupCommand) Execute() {
 			) {
 				lgc.CleanConcernCommand()
 			}
+		}
+	case RobloxCommand:
+		if lgc.requireNotDisable(WatchCommand) {
+			lgc.RobloxCommand()
 		}
 	default:
 		if CheckCustomGroupCommand(lgc.CommandName()) {
@@ -1075,4 +1083,112 @@ func (lgc *LspGroupCommand) NewMessageContext(log *logrus.Entry) *MessageContext
 	}
 	ctx.Sender = lgc.sender()
 	return ctx
+}
+
+func (lgc *LspGroupCommand) RobloxCommand() {
+	log := lgc.DefaultLoggerWithCommand(lgc.CommandName())
+	log.Infof("run %v command", lgc.CommandName())
+	defer func() { log.Infof("%v command end", lgc.CommandName()) }()
+
+	args := lgc.GetArgs()
+	if len(args) == 0 {
+		lgc.textReply("用法: /roblox <info|watch|unwatch|list> ...")
+		return
+	}
+
+	sub := strings.ToLower(args[0])
+	rest := args[1:]
+
+	switch sub {
+	case "info":
+		// 复用私聊逻辑，通过MessageContext发送到群
+		if len(rest) < 1 {
+			lgc.textReply("参数错误 - 请输入用户ID或用户名")
+			return
+		}
+		identifier := rest[0]
+
+		var info struct {
+			ID          int64  `json:"id"`
+			Name        string `json:"name"`
+			DisplayName string `json:"displayName"`
+		}
+		client := http.Client{Timeout: time.Second * 8}
+		if _, err := strconv.ParseInt(identifier, 10, 64); err == nil {
+			resp, err := client.Get("https://users.roblox.com/v1/users/" + identifier)
+			if err != nil {
+				lgc.textReply("请求失败: " + err.Error())
+				return
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				lgc.textReply("查询失败，状态码:" + strconv.Itoa(resp.StatusCode))
+				return
+			}
+			if err := stdjson.NewDecoder(resp.Body).Decode(&info); err != nil {
+				lgc.textReply("解析失败: " + err.Error())
+				return
+			}
+		} else {
+			body, _ := stdjson.Marshal(map[string][]string{"usernames": {identifier}})
+			resp, err := client.Post("https://users.roblox.com/v1/usernames/users", "application/json", bytes.NewReader(body))
+			if err != nil {
+				lgc.textReply("请求失败: " + err.Error())
+				return
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				lgc.textReply("查询失败，状态码:" + strconv.Itoa(resp.StatusCode))
+				return
+			}
+			var search struct{ Data []struct {
+				ID int64 `json:"id"`; Name string `json:"name"`; DisplayName string `json:"displayName"` } `json:"data"` }
+			if err := stdjson.NewDecoder(resp.Body).Decode(&search); err != nil {
+				lgc.textReply("解析失败: " + err.Error())
+				return
+			}
+			if len(search.Data) == 0 {
+				lgc.textReply("未找到用户")
+				return
+			}
+			first := search.Data[0]
+			info.ID = first.ID; info.Name = first.Name; info.DisplayName = first.DisplayName
+		}
+		m := mmsg.NewMSG()
+		m.Textf("Roblox 用户信息\n")
+		m.Textf("- 用户名: %s\n", info.Name)
+		m.Textf("- 显示名: %s\n", info.DisplayName)
+		m.Textf("- 用户ID: %d\n", info.ID)
+		m.Textf("- 个人主页: https://www.roblox.com/users/%d/profile", info.ID)
+		lgc.send(m)
+	case "watch", "unwatch":
+		if len(rest) < 2 {
+			lgc.textReply("用法: /roblox " + sub + " <user|game|friend> <ID>")
+			return
+		}
+		remove := sub == "unwatch"
+		ctypeStr := strings.ToLower(rest[0])
+		id := rest[1]
+		var ctype concern_type.Type
+		switch ctypeStr {
+		case "user":
+			ctype = roblox.UserType
+		case "game":
+			ctype = roblox.GameType
+		case "friend":
+			ctype = roblox.FriendType
+		default:
+			lgc.textReply("订阅类型需为 user / game / friend")
+			return
+		}
+		groupCode := lgc.groupCode()
+		log = log.WithFields(utils.GroupLogFields(groupCode)).WithField("id", id).WithField("ctype", ctype.String())
+		IWatch(lgc.NewMessageContext(log), groupCode, id, "roblox", ctype, remove)
+	case "list":
+		groupCode := lgc.groupCode()
+		log := lgc.DefaultLoggerWithCommand("roblox list").WithFields(utils.GroupLogFields(groupCode))
+		IList(lgc.NewMessageContext(log), groupCode, "roblox")
+	default:
+		lgc.textReply("未知子命令: " + sub)
+	}
 }

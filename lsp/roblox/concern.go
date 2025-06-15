@@ -284,12 +284,14 @@ func (c *RobloxConcern) freshFriendStatus(id interface{}) ([]concern.Event, erro
 
 // Start 启动服务
 func (c *RobloxConcern) Start() error {
-	return nil
+	// 启动内部 StateManager，开始定时刷新与事件分发
+	return c.StateManager.Start()
 }
 
 // Stop 停止服务
 func (c *RobloxConcern) Stop() {
-	// 无需特殊清理
+	// 优雅关闭 StateManager，释放资源
+	c.StateManager.Stop()
 }
 
 // GetStateManager 获取状态管理器

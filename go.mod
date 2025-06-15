@@ -7,12 +7,14 @@ replace github.com/Sora233/MiraiGo-Template => ./bot
 replace github.com/Mrs4s/MiraiGo => ./miraigo
 
 require (
+	github.com/88250/lute v1.7.6
 	github.com/Jeffail/gabs/v2 v2.7.0
 	github.com/Mrs4s/MiraiGo v0.0.0-20230627090859-19e3d172596e
 	github.com/PuerkitoBio/goquery v1.10.3
 	github.com/Sora233/MiraiGo-Template v0.0.0-20230701113809-5e00ec58aa6f
 	github.com/Sora233/sliceutil v0.0.0-20210120043858-459badd8d882
 	github.com/alecthomas/kong v1.11.0
+	github.com/chromedp/chromedp v0.13.6
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dimchansky/utfbom v1.1.1
 	github.com/ericpauley/go-quantize v0.0.0-20200331213906-ae555eb2afa4
@@ -47,6 +49,15 @@ require (
 )
 
 require (
+	github.com/alecthomas/chroma v0.10.0 // indirect
+	github.com/chromedp/cdproto v0.0.0-20250403032234-65de8f5d025b // indirect
+	github.com/chromedp/sysutil v1.1.0 // indirect
+	github.com/dlclark/regexp2 v1.8.1 // indirect
+	github.com/go-json-experiment/json v0.0.0-20250211171154-1ae217ad3535 // indirect
+	github.com/gobwas/httphead v0.1.0 // indirect
+	github.com/gobwas/pool v0.2.1 // indirect
+	github.com/gobwas/ws v1.4.0 // indirect
+	github.com/gopherjs/gopherjs v1.17.2 // indirect
 	github.com/mmcdole/goxpp v1.1.1-0.20240225020742-a0c311522b23 // indirect
 	golang.org/x/net v0.39.0 // indirect
 )

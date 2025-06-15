@@ -38,6 +38,7 @@ var CommandMaps = map[string]string{
 	"AbnormalConcernCheck": AbnormalConcernCheck,
 	"CleanConcern":         CleanConcern,
 	"RobloxCommand":        RobloxCommand,
+	"BlogCommand":          BlogCommand,
 }
 
 const (
@@ -57,6 +58,7 @@ const (
 	HelpCommand    = "help"
 	ConfigCommand  = "config"
 	RobloxCommand  = "roblox"
+	BlogCommand    = "blog"
 )
 
 // private command
@@ -85,6 +87,7 @@ var allGroupCommand = [...]string{
 	ReverseCommand, ConfigCommand,
 	HelpCommand, ScoreCommand, AdminCommand,
 	SilenceCommand, NoUpdateCommand, CleanConcern,
+	RobloxCommand,
 }
 
 var allPrivateOperate = [...]string{
@@ -96,6 +99,7 @@ var allPrivateOperate = [...]string{
 	GroupRequestCommand, FriendRequestCommand, AdminCommand,
 	SilenceCommand, NoUpdateCommand, AbnormalConcernCheck,
 	CleanConcern, RobloxCommand,
+	BlogCommand,
 }
 
 var nonOprateable = [...]string{

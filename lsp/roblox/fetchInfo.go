@@ -2,29 +2,100 @@ package roblox
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
+	"time"
 	"strconv"
 
 	"github.com/pkg/errors"
 )
 
-// getUserInfo 获取用户信息
-func getUserInfo(uid int64) (*UserInfo, error) {
-	resp, err := http.Get(fmt.Sprintf("%s/v1/users/%d", usersAPI, uid))
+// 统一使用一个可复用的 http.Client，避免频繁创建连接
+var httpClient *http.Client
+
+func init() {
+	// 创建带有超时与 KeepAlive 的 Transport
+	tr := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   10 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		IdleConnTimeout:       90 * time.Second,
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   100,
+	}
+
+	httpClient = &http.Client{
+		Transport: tr,
+		Timeout:   15 * time.Second, // 整体超时
+	}
+}
+
+// apiGet 执行 GET 请求并解析 JSON。
+func apiGet(ctx context.Context, url string, result interface{}) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "请求用户信息失败")
+		return errors.Wrap(err, "构建 GET 请求失败")
+	}
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return errors.Wrap(err, "执行 GET 请求失败")
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("API 请求失败，状态码: %d", resp.StatusCode)
+		return errors.Errorf("API 请求失败，状态码: %d", resp.StatusCode)
 	}
 
+	if result != nil {
+		if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
+			return errors.Wrap(err, "解析响应 JSON 失败")
+		}
+	}
+	return nil
+}
+
+// apiPost 执行 POST 请求并解析 JSON。
+func apiPost(ctx context.Context, url string, body []byte, result interface{}) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return errors.Wrap(err, "构建 POST 请求失败")
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return errors.Wrap(err, "执行 POST 请求失败")
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return errors.Errorf("API 请求失败，状态码: %d", resp.StatusCode)
+	}
+
+	if result != nil {
+		if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
+			return errors.Wrap(err, "解析响应 JSON 失败")
+		}
+	}
+	return nil
+}
+
+// getUserInfo 获取用户信息
+func getUserInfo(uid int64) (*UserInfo, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	var info UserInfo
-	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
-		return nil, errors.Wrap(err, "解析用户信息失败")
+	if err := apiGet(ctx, fmt.Sprintf("%s/v1/users/%d", usersAPI, uid), &info); err != nil {
+		return nil, err
 	}
 	return &info, nil
 }
@@ -38,19 +109,12 @@ func findUserByName(username string) (*UserInfo, error) {
 		return nil, errors.Wrap(err, "序列化请求体失败")
 	}
 
-	resp, err := http.Post(fmt.Sprintf("%s/v1/usernames/users", usersAPI), "application/json", bytes.NewBuffer(requestBody))
-	if err != nil {
-		return nil, errors.Wrap(err, "请求用户信息失败")
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("API 请求失败, 状态码: %d", resp.StatusCode)
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
 	var searchResult UserSearchResponse
-	if err := json.NewDecoder(resp.Body).Decode(&searchResult); err != nil {
-		return nil, errors.Wrap(err, "解析用户信息失败")
+	if err := apiPost(ctx, fmt.Sprintf("%s/v1/usernames/users", usersAPI), requestBody, &searchResult); err != nil {
+		return nil, err
 	}
 
 	if len(searchResult.Data) == 0 {
@@ -67,39 +131,30 @@ func findUserByName(username string) (*UserInfo, error) {
 
 // getGameInfo 获取游戏信息
 func getGameInfo(gameOrPlaceId int64) ([]GameInfo, error) {
-	// 首先尝试将 ID 作为 Universe ID 使用
-	resp, err := http.Get(fmt.Sprintf("%s/v1/games?universeIds=%d", gamesAPI, gameOrPlaceId))
-	if err != nil {
-		return nil, errors.Wrap(err, "请求游戏信息失败")
-	}
-	defer resp.Body.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
+	// 尝试将 ID 作为 Universe ID 使用
 	var data struct {
 		Data []GameInfo `json:"data"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&data); err == nil && len(data.Data) > 0 {
+	if err := apiGet(ctx, fmt.Sprintf("%s/v1/games?universeIds=%d", gamesAPI, gameOrPlaceId), &data); err == nil && len(data.Data) > 0 {
 		return data.Data, nil
 	}
 
 	// 如果失败，假设它是一个 Place ID，获取 Universe ID
-	resp, err = http.Get(fmt.Sprintf("%s/universes/v1/places/%d/universe", apisAPI, gameOrPlaceId))
-	if err != nil {
-		return nil, errors.Wrap(err, "请求 Universe ID 失败")
-	}
-	defer resp.Body.Close()
-
 	var universe struct {
 		UniverseId int64 `json:"universeId"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&universe); err != nil {
-		return nil, errors.Wrap(err, "解析 Universe ID 失败")
+	if err := apiGet(ctx, fmt.Sprintf("%s/universes/v1/places/%d/universe", apisAPI, gameOrPlaceId), &universe); err != nil {
+		return nil, err
 	}
 
 	if universe.UniverseId == 0 {
 		return nil, errors.Errorf("无法找到 Universe ID %d", gameOrPlaceId)
 	}
 
-	// 使用获取到的 Universe ID 重试
+	// 使用获取到的 Universe ID 递归查询
 	return getGameInfo(universe.UniverseId)
 }
 
@@ -109,22 +164,19 @@ func getUsersPresence(uids []int64) ([]UserPresence, error) {
 		return nil, nil
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	body, err := json.Marshal(map[string][]int64{"userIds": uids})
 	if err != nil {
 		return nil, errors.Wrap(err, "序列化请求体失败")
 	}
 
-	resp, err := http.Post(fmt.Sprintf("%s/v1/presence/users", presenceAPI), "application/json", bytes.NewBuffer(body))
-	if err != nil {
-		return nil, errors.Wrap(err, "请求用户在线状态失败")
-	}
-	defer resp.Body.Close()
-
 	var presences struct {
 		UserPresences []UserPresence `json:"userPresences"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&presences); err != nil {
-		return nil, errors.Wrap(err, "解析用户在线状态失败")
+	if err := apiPost(ctx, fmt.Sprintf("%s/v1/presence/users", presenceAPI), body, &presences); err != nil {
+		return nil, err
 	}
 	return presences.UserPresences, nil
 }

@@ -2,9 +2,11 @@ package lsp
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"runtime/debug"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -36,6 +38,12 @@ import (
 	"github.com/tidwall/buntdb"
 	"go.uber.org/atomic"
 	"golang.org/x/sync/semaphore"
+	"io"
+	"context"
+	"encoding/base64"
+	"github.com/chromedp/chromedp"
+	"github.com/88250/lute"
+	"os/exec"
 )
 
 const ModuleName = "me.sora233.Lsp"
@@ -721,6 +729,9 @@ func (l *Lsp) PostStart(bot *bot.Bot) {
 	concern.StartAll()
 	l.started.Store(true)
 
+	// 内部更新日志通知
+	l.SendInternalUpdateLog()
+
 	var newVersionChan = make(chan string, 1)
 	go func() {
 		newVersionChan <- CheckUpdate()
@@ -998,4 +1009,219 @@ func init() {
 	template.RegisterExtFunc("currentMode", func() string {
 		return string(Instance.LspStateManager.GetCurrentMode())
 	})
+}
+
+// SendInternalUpdateLog 向所有管理员发送本次代码内部更新日志通知，避免重复推送
+func (l *Lsp) SendInternalUpdateLog() {
+	// 1. 从 GitHub 获取最新提交并组装更新日志
+	m, latestSHA, err := l.BuildGitHubUpdateMsg()
+	if err != nil {
+		logger.Errorf("SendInternalUpdateLog: fetch update log failed %v", err)
+		return
+	}
+
+	const dbKey = "ddb:internal_update_sha"
+
+	var needNotify bool
+	if err := localdb.RWCover(func() error {
+		lastSHA, err := localdb.Get(dbKey, localdb.IgnoreNotFoundOpt())
+		if err != nil && !localdb.IsNotFound(err) {
+			return err
+		}
+		if lastSHA != latestSHA {
+			needNotify = true
+		}
+		return localdb.Set(dbKey, latestSHA)
+	}); err != nil {
+		logger.Errorf("SendInternalUpdateLog cover err %v", err)
+		return
+	}
+	if !needNotify {
+		return
+	}
+
+	// 追加关闭提示
+	m.Text("\n如需关闭此类内部更新通知，请使用指令 " + l.CommandShowName(NoUpdateCommand))
+
+	for _, admin := range l.PermissionStateManager.ListAdmin() {
+		if localdb.Exist(localdb.DDBotNoUpdateKey(admin)) {
+			continue
+		}
+		if localutils.GetBot().FindFriend(admin) == nil {
+			continue
+		}
+		logger.WithField("Target", admin).Info("internal update notify")
+		l.SendMsg(m, mmsg.NewPrivateTarget(admin))
+	}
+}
+
+// BuildGitHubUpdateMsg 从 GitHub API 获取最近提交，构造更新日志消息
+// 返回生成的消息、最新提交SHA，或错误
+func (l *Lsp) BuildGitHubUpdateMsg() (*mmsg.MSG, string, error) {
+	const (
+		owner  = "Yar1991-Translation"
+		repo   = "DDBOT-RoPlugin-Blog"
+		branch = "main"
+		rawURL = "https://raw.githubusercontent.com/%s/%s/%s/README.md"
+	)
+
+	url := fmt.Sprintf(rawURL, owner, repo, branch)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, "", err
+	}
+	req.Header.Set("User-Agent", "DDBOT-WSa-Bot")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, "", fmt.Errorf("读取博客 Markdown 失败，状态码:%v", resp.StatusCode)
+	}
+
+	mdBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, "", err
+	}
+	markdown := string(mdBytes)
+
+	// 使用 Last-Modified 或当前时间作为版本标识
+	latest := resp.Header.Get("Last-Modified")
+	if latest == "" {
+		latest = strconv.FormatInt(time.Now().Unix(), 10)
+	}
+
+	imgBytes, err := markdownToPNG(markdown)
+	if err != nil {
+		return nil, "", err
+	}
+
+	m := mmsg.NewMSG()
+	m.Image(imgBytes, "更新日志")
+	return m, latest, nil
+}
+
+// markdownToPNG 使用基本字体将 Markdown 文本渲染为 PNG 图片
+func markdownToPNG(md string) ([]byte, error) {
+	// 1. Markdown -> HTML 使用 lute
+	luteEngine := lute.New()
+	bodyHTML := luteEngine.MarkdownStr("blog", md)
+
+	htmlStr := `<html><head><meta charset="utf-8"><style>
+		body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,'Noto Sans',sans-serif;line-height:1.6;padding:24px;max-width:800px;margin:auto;}
+		code,pre{background:#f6f8fa;border-radius:6px;padding:2px 4px;font-family:SFMono-Regular,'Courier New',monospace;}
+		h1{font-size:24px;border-bottom:1px solid #eaecef;padding-bottom:0.3em;}
+		h2{font-size:20px;border-bottom:1px solid #eaecef;padding-bottom:0.3em;}
+	</style></head><body>` + bodyHTML + `</body></html>`
+
+	dataURL := "data:text/html;base64," + base64.StdEncoding.EncodeToString([]byte(htmlStr))
+
+	// 2. 使用 chromedp 截图
+	// 尝试查找浏览器可执行文件
+	execPath := findChromeExec()
+	allocCtx, cancel := chromedp.NewExecAllocator(context.Background(), append(chromedp.DefaultExecAllocatorOptions[:], chromedp.ExecPath(execPath), chromedp.Flag("headless", true))...)
+	ctx, cancel := chromedp.NewContext(allocCtx)
+	defer cancel()
+
+	// 设置超时
+	ctx, cancel = context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+
+	var pngBuf []byte
+	tasks := chromedp.Tasks{
+		chromedp.Navigate(dataURL),
+		chromedp.WaitReady("body", chromedp.ByQuery),
+		chromedp.FullScreenshot(&pngBuf, 90),
+	}
+	if err := chromedp.Run(ctx, tasks); err != nil {
+		return nil, err
+	}
+	return pngBuf, nil
+}
+
+// findChromeExec 返回系统可用的 chrome / chromium / edge 可执行文件
+func findChromeExec() string {
+	candidates := []string{
+		os.Getenv("CHROME_EXECUTABLE"),
+		"C:/Program Files/Google/Chrome/Application/chrome.exe",
+		"C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
+		"C:/Program Files/Microsoft/Edge/Application/msedge.exe",
+		"C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
+		"google-chrome",
+		"chromium",
+		"chrome",
+		"msedge",
+	}
+	for _, p := range candidates {
+		if p == "" { continue }
+		if _, err := exec.LookPath(p); err == nil {
+			return p
+		}
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return "" // 让 chromedp 默认搜索
+}
+
+// BuildGitHubBlogFile 读取指定 md 文件并转为图片
+func (l *Lsp) BuildGitHubBlogFile(file string) (*mmsg.MSG, string, error) {
+	const (
+		owner  = "Yar1991-Translation"
+		repo   = "DDBOT-RoPlugin-Blog"
+		branch = "main"
+		rawURL = "https://raw.githubusercontent.com/%s/%s/%s/%s"
+	)
+
+	candidates := []string{file}
+	if !strings.Contains(file, "/") {
+		candidates = append(candidates, "blog/"+file)
+	}
+
+	var resp *http.Response
+	var err error
+	var urlStr string
+	for _, f := range candidates {
+		urlStr = fmt.Sprintf(rawURL, owner, repo, branch, f)
+		req, e := http.NewRequest("GET", urlStr, nil)
+		if e != nil {
+			err = e; continue
+		}
+		req.Header.Set("User-Agent", "DDBOT-WSa-Bot")
+		resp, err = http.DefaultClient.Do(req)
+		if err != nil {
+			continue
+		}
+		if resp.StatusCode == http.StatusOK {
+			break
+		}
+		resp.Body.Close()
+		resp = nil
+	}
+	if resp == nil {
+		return nil, "", fmt.Errorf("未找到指定博客文件 %s", file)
+	}
+	defer resp.Body.Close()
+
+	mdBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, "", err
+	}
+
+	latest := resp.Header.Get("Last-Modified")
+	if latest == "" {
+		latest = strconv.FormatInt(time.Now().Unix(), 10)
+	}
+
+	imgBytes, err := markdownToPNG(string(mdBytes))
+	if err != nil {
+		return nil, "", err
+	}
+
+	m := mmsg.NewMSG()
+	m.Image(imgBytes, file)
+	return m, latest, nil
 }

@@ -24,6 +24,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"net/http"
 	stdjson "encoding/json"
+	"github.com/cnxysoft/DDBOT-WSa/lsp/roblox"
 )
 
 type LspPrivateCommand struct {
@@ -68,8 +69,11 @@ func (c *LspPrivateCommand) Execute() {
 
 	log.Debug("execute command")
 
+	// 指令名统一转为小写并去除前导/
+	cmd := strings.TrimPrefix(strings.ToLower(c.CommandName()), "/")
+
 	// all permission will be checked later
-	switch c.CommandName() {
+	switch cmd {
 	case PingCommand:
 		c.PingCommand()
 	case HelpCommand:
@@ -116,6 +120,8 @@ func (c *LspPrivateCommand) Execute() {
 		c.CleanConcernCommand()
 	case RobloxCommand:
 		c.RobloxCommand()
+	case BlogCommand:
+		c.BlogCommand()
 	default:
 		if CheckCustomPrivateCommand(c.CommandName()) {
 			func() {
@@ -1474,12 +1480,19 @@ func (c *LspPrivateCommand) RobloxCommand() {
 		c.textReply("用法: /roblox <info|watch|unwatch|list> ...")
 		return
 	}
-	sub := args[0]
+
+	sub := strings.ToLower(args[0])
+	rest := args[1:]
+
 	switch sub {
 	case "info":
-		c.robloxInfo(args[1:])
-	case "watch", "unwatch", "list":
-		c.textReply("请使用现有指令：/watch -s roblox 或 /unwatch -s roblox 或 /list -s roblox")
+		c.robloxInfo(rest)
+	case "watch":
+		c.robloxWatch(false, rest)
+	case "unwatch":
+		c.robloxWatch(true, rest)
+	case "list":
+		c.robloxList(rest)
 	default:
 		c.textReply("未知子命令: " + sub)
 	}
@@ -1548,4 +1561,135 @@ func (c *LspPrivateCommand) robloxInfo(rest []string) {
 	m.Textf("- 用户ID: %d\n", info.ID)
 	m.Textf("- 个人主页: https://www.roblox.com/users/%d/profile", info.ID)
 	c.send(m)
+}
+
+// robloxWatch 处理 watch / unwatch 子命令
+func (c *LspPrivateCommand) robloxWatch(remove bool, rest []string) {
+	if len(rest) < 2 {
+		c.textReply("用法: /roblox " + map[bool]string{true:"unwatch", false:"watch"}[remove] + " <user|game|friend> <ID> [-g 群号]")
+		return
+	}
+
+	ctypeStr := strings.ToLower(rest[0])
+	id := rest[1]
+
+	// 默认 groupCode 为 0 表示未指定
+	var groupCode int64
+	// 解析 -g 参数
+	for i := 2; i < len(rest); i++ {
+		if rest[i] == "-g" && i+1 < len(rest) {
+			if g, err := strconv.ParseInt(rest[i+1], 10, 64); err == nil {
+				groupCode = g
+			}
+			i++
+		}
+	}
+
+	// 检查群号有效性（与 /watch 一致）
+	if err := c.checkGroupCode(groupCode); err != nil {
+		c.textReply(err.Error())
+		return
+	}
+
+	var ctype concern_type.Type
+	switch ctypeStr {
+	case "user":
+		ctype = roblox.UserType
+	case "game":
+		ctype = roblox.GameType
+	case "friend":
+		ctype = roblox.FriendType
+	default:
+		c.textReply("订阅类型需为 user / game / friend")
+		return
+	}
+
+	log := c.DefaultLoggerWithCommand("roblox " + map[bool]string{true:"unwatch", false:"watch"}[remove])
+	log = log.WithFields(localutils.GroupLogFields(groupCode)).WithField("id", id).WithField("ctype", ctype.String())
+
+	IWatch(c.NewMessageContext(log), groupCode, id, "roblox", ctype, remove)
+}
+
+// robloxList 处理 list 子命令
+func (c *LspPrivateCommand) robloxList(rest []string) {
+	var groupCode int64
+	// 解析 -g 参数
+	for i := 0; i < len(rest); i++ {
+		if rest[i] == "-g" && i+1 < len(rest) {
+			if g, err := strconv.ParseInt(rest[i+1], 10, 64); err == nil {
+				groupCode = g
+			}
+			i++
+		}
+	}
+
+	if err := c.checkGroupCode(groupCode); err != nil {
+		c.textReply(err.Error())
+		return
+	}
+
+	log := c.DefaultLoggerWithCommand("roblox list").WithFields(localutils.GroupLogFields(groupCode))
+	IList(c.NewMessageContext(log), groupCode, "roblox")
+}
+
+func (c *LspPrivateCommand) BlogCommand() {
+	log := c.DefaultLoggerWithCommand(c.CommandName())
+	log.Infof("run %v command", c.CommandName())
+	defer func() { log.Infof("%v command end", c.CommandName()) }()
+
+	// 权限检查：仅 Admin
+	if !c.l.PermissionStateManager.RequireAny(permission.AdminRoleRequireOption(c.uin())) {
+		c.noPermission()
+		return
+	}
+
+	var (
+		m *mmsg.MSG
+		err error
+	)
+
+	if len(c.GetArgs()) >= 1 {
+		// /blog <file.md>
+		targetFile := c.GetArgs()[0]
+		m, _, err = c.l.BuildGitHubBlogFile(targetFile)
+		if err != nil {
+			c.textReply("获取指定博客失败 - " + err.Error())
+			return
+		}
+	} else {
+		// 默认读取 README
+		m, _, err = c.l.BuildGitHubUpdateMsg()
+	}
+	if err != nil {
+		log.Errorf("fetch blog failed %v", err)
+		c.textReply("获取更新日志失败 - " + err.Error())
+		return
+	}
+
+	// 收集有订阅的群聊
+	groupSet := make(map[int64]struct{})
+	for _, cm := range concern.ListConcern() {
+		groups, _, _, err := cm.GetStateManager().ListConcernState(func(groupCode int64, id interface{}, p concern_type.Type) bool {
+			return true
+		})
+		if err != nil {
+			log.Errorf("ListConcernState error %v", err)
+			continue
+		}
+		for _, g := range groups {
+			groupSet[g] = struct{}{}
+		}
+	}
+
+	if len(groupSet) == 0 {
+		c.textReply("尚未检测到任何订阅，未发送更新日志。")
+		return
+	}
+
+	for groupCode := range groupSet {
+		c.l.SendMsg(m, mmsg.NewGroupTarget(groupCode))
+		log.Infof("blog update sent to group %v", groupCode)
+	}
+
+	c.textReply("已向 " + strconv.Itoa(len(groupSet)) + " 个群聊推送更新日志")
 }
